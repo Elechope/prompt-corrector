@@ -1,0 +1,15 @@
+{
+  "whitelist": [
+    "skil",
+    "k8s",
+    "kube",
+    "repo",
+    "my-skil-lib",
+    "代马库",
+    "运型"
+  ],
+  "project_terms": [
+    "prompt-corrector",
+    "find-skills"
+  ]
+}
