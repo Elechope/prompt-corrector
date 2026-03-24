@@ -3,11 +3,12 @@ import json
 import os
 
 def main():
-    if len(sys.argv) < 2:
+    # Read prompt from stdin to prevent Shell Injection
+    prompt = sys.stdin.read().strip()
+    
+    if not prompt:
         print(json.dumps({"status": "NEEDS_LLM", "reason": "No prompt provided"}))
         return
-
-    prompt = sys.argv[1].strip()
     
     # Load User Dictionary
     dict_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'user_dictionary.json')

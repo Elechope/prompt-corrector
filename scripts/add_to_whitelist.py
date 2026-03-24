@@ -3,12 +3,11 @@ import json
 import os
 
 def main():
-    if len(sys.argv) < 2:
-        print(json.dumps({"status": "ERROR", "message": "No word provided"}))
-        return
-
-    new_word = sys.argv[1].strip()
+    # Read word from stdin to prevent Shell Injection
+    new_word = sys.stdin.read().strip()
+    
     if not new_word:
+        print(json.dumps({"status": "ERROR", "message": "No word provided"}))
         return
 
     dict_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'user_dictionary.json')
