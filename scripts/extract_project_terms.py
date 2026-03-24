@@ -3,12 +3,52 @@ import re
 import json
 import time
 import subprocess
+import tempfile
 
-# 配置忽略的目录和文件后缀
-VALID_EXTENSIONS = {'.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.go', '.md', '.txt', '.json', '.yml', '.yaml'}
+def get_config():
+    """Load configuration for scanning extensions and ignored directories."""
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'config.json')
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        # Fallback default configuration
+        return {
+            "ignore_dirs": [".git", "node_modules", "venv", ".env", "__pycache__", "dist", "build", ".cursor"],
+            "valid_extensions": [".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".go", ".md", ".txt", ".json", ".yml", ".yaml"]
+        }
 
 def get_project_root():
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
+    """
+    Dynamically resolve project root by looking for common root markers.
+    This makes the script robust across different VM/Container environments.
+    """
+    current_dir = os.path.abspath(os.path.dirname(__file__))
+    markers = ['.git', 'package.json', 'pyproject.toml', 'pom.xml', 'go.mod', 'requirements.txt']
+    
+    # Traverse upwards until a marker is found or filesystem root is reached
+    while current_dir != os.path.dirname(current_dir):
+        if any(os.path.exists(os.path.join(current_dir, marker)) for marker in markers):
+            return current_dir
+        current_dir = os.path.dirname(current_dir)
+        
+    # Fallback to current working directory if no marker is found
+    return os.getcwd()
+
+def atomic_write_json(data, filepath):
+    """
+    Safely write JSON data using a temporary file and atomic rename.
+    Prevents file corruption during concurrent access by multiple agents.
+    """
+    dir_name = os.path.dirname(filepath)
+    fd, tmp_path = tempfile.mkstemp(dir=dir_name, prefix="tmp_dict_", suffix=".json")
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp_path, filepath)
+    except Exception as e:
+        os.remove(tmp_path)
+        raise e
 
 def get_git_tracked_files(root_dir):
     """
@@ -16,7 +56,6 @@ def get_git_tracked_files(root_dir):
     极大提升大项目的扫描速度，避免扫描 node_modules 等。
     """
     try:
-        # 切换到项目根目录执行 git ls-files
         result = subprocess.run(
             ['git', 'ls-files'], 
             cwd=root_dir, 
@@ -28,7 +67,7 @@ def get_git_tracked_files(root_dir):
         files = result.stdout.splitlines()
         return [os.path.join(root_dir, f) for f in files]
     except Exception as e:
-        print(f"Git ls-files failed (maybe not a git repo). Fallback to os.walk. Error: {e}")
+        print(f"Git ls-files failed. Fallback to os.walk. Error: {e}")
         return None
 
 def extract_terms_from_text(text):
@@ -39,19 +78,20 @@ def extract_terms_from_text(text):
     terms.update(snake_case)
     return terms
 
-def scan_project(root_dir):
+def scan_project(root_dir, config):
     project_terms = set()
     file_count = 0
+    valid_exts = set(config.get("valid_extensions", []))
+    ignore_dirs = set(config.get("ignore_dirs", []))
     
     # 优先使用 Git 获取文件列表（原生支持 .gitignore）
     files_to_scan = get_git_tracked_files(root_dir)
     
     if files_to_scan is None:
         # 降级方案：传统的 os.walk
-        IGNORE_DIRS = {'.git', 'node_modules', 'venv', '.env', '__pycache__', 'dist', 'build', '.cursor'}
         files_to_scan = []
         for dirpath, dirnames, filenames in os.walk(root_dir):
-            dirnames[:] = [d for d in dirnames if d not in IGNORE_DIRS]
+            dirnames[:] = [d for d in dirnames if d not in ignore_dirs]
             for filename in filenames:
                 files_to_scan.append(os.path.join(dirpath, filename))
                 
@@ -65,7 +105,7 @@ def scan_project(root_dir):
         
         # 2. 提取文件内容中的专有名词
         ext = os.path.splitext(filename)[1].lower()
-        if ext in VALID_EXTENSIONS:
+        if ext in valid_exts:
             try:
                 # 限制读取大小，防止读取超大文件卡死（最大 500KB）
                 if os.path.getsize(filepath) < 500 * 1024:
@@ -81,10 +121,11 @@ def scan_project(root_dir):
 
 def main():
     start_time = time.time()
-    print("Starting fast project indexing (Git-aware)...")
+    print("Starting enterprise-grade project indexing...")
     
+    config = get_config()
     root_dir = get_project_root()
-    terms, file_count = scan_project(root_dir)
+    terms, file_count = scan_project(root_dir, config)
     
     # 过滤掉太短的词或纯数字
     terms = [t for t in terms if len(t) > 2 and not t.isdigit()]
@@ -100,12 +141,10 @@ def main():
     data["project_terms"] = sorted(list(set(terms))) # 去重并排序
     
     try:
-        with open(dict_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        
+        atomic_write_json(data, dict_path)
         elapsed = time.time() - start_time
         print(f"Indexing complete in {elapsed:.2f} seconds.")
-        print(f"Scanned {file_count} files. Extracted {len(terms)} project terms.")
+        print(f"Scanned {file_count} files in {root_dir}. Extracted {len(terms)} project terms.")
     except Exception as e:
         print(f"Error saving dictionary: {e}")
 

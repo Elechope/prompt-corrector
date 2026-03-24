@@ -1,0 +1,30 @@
+{
+  "ignore_dirs": [
+    ".git",
+    "node_modules",
+    "venv",
+    ".env",
+    "__pycache__",
+    "dist",
+    "build",
+    ".cursor"
+  ],
+  "valid_extensions": [
+    ".py",
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".java",
+    ".go",
+    ".md",
+    ".txt",
+    ".json",
+    ".yml",
+    ".yaml",
+    ".rs",
+    ".cpp",
+    ".c",
+    ".h"
+  ]
+}

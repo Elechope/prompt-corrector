@@ -24,6 +24,7 @@ prompt-corrector/
 │   ├── add_to_whitelist.py           # Auto-learning script / 自动学习脚本
 │   └── extract_project_terms.py      # Codebase indexing script / 代码库索引脚本
 └── assets/
+    ├── config.json                   # Extensible scan configuration / 可扩展的扫描配置
     └── user_dictionary.json          # Whitelist and project terms / 白名单与项目词汇表 (自动更新)
 ```
 
