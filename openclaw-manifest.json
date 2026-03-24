@@ -1,0 +1,54 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Prompt Corrector",
+  "name_for_model": "PromptCorrector",
+  "description_for_human": "An intelligent guardrail that prevents typos and garbled speech-to-text inputs from causing AI hallucinations or destructive actions.",
+  "description_for_model": "A commercial-grade intent and spelling corrector. Use this plugin to pre-filter user prompts, manage a custom whitelist of domain jargon, and trigger codebase indexing. ALWAYS use this plugin to validate ambiguous or potentially mistyped user inputs before executing complex tasks.",
+  "api": {
+    "type": "openapi",
+    "url": "http://localhost:8000/openapi.json",
+    "endpoints": {
+      "/api/v1/filter": {
+        "method": "POST",
+        "summary": "Pre-filter a user prompt against the whitelist.",
+        "description": "Checks if the prompt is a known whitelisted term or a short generic confirmation. If the status is 'PASS', the prompt should be trusted as-is. If 'NEEDS_LLM', you must perform deep semantic analysis for typos.",
+        "request_body": {
+          "type": "object",
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "description": "The raw user input to check."
+            }
+          },
+          "required": ["prompt"]
+        },
+        "responses": {
+          "200": {
+            "description": "Returns status 'PASS' or 'NEEDS_LLM'."
+          }
+        }
+      },
+      "/api/v1/whitelist": {
+        "method": "POST",
+        "summary": "Add a confirmed term to the whitelist.",
+        "description": "Call this endpoint when the user explicitly rejects your spelling correction and confirms their original term is correct (e.g., domain jargon). This ensures the term won't be flagged in the future.",
+        "request_body": {
+          "type": "object",
+          "properties": {
+            "word": {
+              "type": "string",
+              "description": "The specific term to whitelist."
+            }
+          },
+          "required": ["word"]
+        }
+      },
+      "/api/v1/scan": {
+        "method": "POST",
+        "summary": "Trigger asynchronous codebase indexing.",
+        "description": "Starts a background job to scan the project files and extract domain-specific terminology into the database. Call this when the user asks to 'update dictionary' or 'scan project'. It returns immediately.",
+        "request_body": {}
+      }
+    }
+  }
+}
